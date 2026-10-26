@@ -1,0 +1,70 @@
+name: discountbay
+description: DiscountBay — verified coupon codes and deals. Native iOS & Android app.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.2.2
+  provider: ^6.1.2
+  google_fonts: ^6.2.1
+  flutter_svg: ^2.0.10
+  cached_network_image: ^3.4.1
+  url_launcher: ^6.3.1
+  shared_preferences: ^2.3.2
+  intl: ">=0.19.0 <0.21.0"
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.1
+
+# dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#12203A"
+  adaptive_icon_foreground: assets/icon/icon_foreground.png
+  remove_alpha_ios: true
+
+# dart run flutter_native_splash:create
+flutter_native_splash:
+  color: "#12203A"
+  image: assets/icon/splash_logo.png
+  android_12:
+    color: "#12203A"
+    image: assets/icon/icon_foreground.png
+  fullscreen: false
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/brand/
+  # logo images: assets/brand/*.png with 2.0x/ and 3.0x/ variants (see lib/widgets/brand_logo.dart)
+  fonts:
+    - family: Archivo
+      fonts:
+        - asset: assets/fonts/Archivo_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Archivo_700Bold.ttf
+          weight: 700
+        - asset: assets/fonts/Archivo_800ExtraBold.ttf
+          weight: 800
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter_400Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter_500Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter_600SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter_700Bold.ttf
+          weight: 700

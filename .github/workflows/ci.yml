@@ -1,0 +1,57 @@
+# Every push and pull request: analyze, test, Android release build (debug-signed, to prove it compiles).
+# iOS build runs on demand (macOS minutes cost 10x): Actions → CI → Run workflow → tick "Also build iOS".
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      ios:
+        description: "Also build iOS (macOS runner)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Analyze, test, Android build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: bash tool/setup_platforms.sh
+      - run: flutter analyze --no-fatal-infos
+      - run: flutter test
+      - run: flutter build apk --release --dart-define=DEMO=true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discountbay-demo-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+  ios:
+    name: iOS build (no codesign)
+    if: github.event_name == 'workflow_dispatch' && inputs.ios
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: bash tool/setup_platforms.sh
+      - run: flutter build ios --release --no-codesign

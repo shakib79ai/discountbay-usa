@@ -1,0 +1,50 @@
+# Signed Google Play build. Run from Actions → "Release (Android)" → Run workflow,
+# or push a tag like v1.0.1. Download the .aab from the run's Artifacts and upload it in Play Console.
+#
+# Needs these repository secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64   base64 of upload-keystore.jks   (base64 -i upload-keystore.jks | pbcopy)
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS         usually "upload"
+#   ANDROID_KEY_PASSWORD
+name: Release (Android)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: bash tool/setup_platforms.sh
+      - name: Write upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          [ -n "$KEYSTORE_B64" ] || { echo "ANDROID_KEYSTORE_BASE64 secret is not set — see docs/RELEASE.md"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=upload-keystore.jks\n' "$STORE_PW" "$KEY_PW" "$KEY_ALIAS" > android/key.properties
+      - run: bash tool/build_release.sh android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: discountbay-play-${{ github.ref_name }}
+          path: |
+            build/app/outputs/bundle/release/app-release.aab
+            build/symbols/android
+          retention-days: 30
