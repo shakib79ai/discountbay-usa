@@ -115,3 +115,17 @@ docs/RELEASE.md             step-by-step publishing guide
 .github/workflows/          CI and signed Android release
 test/models_test.dart       parsing tests  (flutter test)
 ```
+
+## Images from the image pack
+
+The app reads photo URLs from the API and falls back to the bundled photos in `assets/photos/`
+when a field is empty, so new images need no app release:
+
+| API field | Used for |
+|---|---|
+| store `cover_image_url` | store page cover; cards use the `-card.webp` version |
+| category `image_url` | category circles, category tiles and the category page header |
+| offer `image_url` | deal cards and the deal sheet |
+
+The images, their manifest and the offer-matching script are delivered separately as the
+DiscountBay image pack (see its README).

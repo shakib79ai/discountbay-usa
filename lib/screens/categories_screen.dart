@@ -77,6 +77,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         label: c.name,
                         meta: c.storeCount > 0 ? '${c.storeCount} stores' : 'Explore stores',
                         photo: SiteCategory.guess([c.name]).photo,
+                        url: c.imageUrl,
                         onTap: () => Navigator.of(context).push(CategoryScreen.route(c)),
                       );
                     },

@@ -251,6 +251,7 @@ class _StoreHeader extends StatelessWidget {
           child: FadedCover(
             gradient: look.gradient,
             photo: look.cover,
+            url: store.coverUrl,
             widthFactor: 0.8,
             child: Padding(
               padding: EdgeInsets.fromLTRB(12, top + 8, 12, 34),

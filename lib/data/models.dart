@@ -30,6 +30,13 @@ Map<String, dynamic>? _obj(Map<String, dynamic> j, String key) {
 }
 
 /// Turns relative paths like `/static/logos/x.svg` into absolute URLs.
+/// The small "-card" version of an image-pack photo, for cards and lists.
+/// Other URLs are returned unchanged.
+String? cardUrl(String? url) {
+  if (url == null || !url.contains('/media/deals/') || url.contains('-card.')) return url;
+  return url.replaceFirstMapped(RegExp(r'\.(webp|jpg|png)(\?.*)?$'), (m) => '-card.${m[1]}${m[2] ?? ''}');
+}
+
 String? absoluteUrl(String? url, String base) {
   if (url == null || url.isEmpty) return null;
   if (url.startsWith('http')) return url;
@@ -48,12 +55,16 @@ class Store {
     this.categoryName,
     this.categorySlug,
     this.websiteUrl,
+    this.coverUrl,
   });
 
   final String id;
   final String slug;
   final String name;
   final String? logoUrl;
+
+  /// Store page cover photo (image pack: /media/deals/stores/<slug>.webp).
+  final String? coverUrl;
   final int offerCount;
   final String? about;
   final String? categoryName;
@@ -72,6 +83,7 @@ class Store {
       categoryName: cat != null ? _pick<String>(cat, ['name']) : _pick<String>(j, ['category_name', 'primary_category']),
       categorySlug: cat != null ? _pick<String>(cat, ['slug']) : _pick<String>(j, ['category_slug']),
       websiteUrl: _pick<String>(j, ['website_url', 'website', 'url', 'program_url', 'affiliate_url']),
+      coverUrl: absoluteUrl(_pick<String>(j, ['cover_image_url', 'cover_url', 'cover_image', 'banner_url']), assetBase),
     );
   }
 
@@ -84,20 +96,25 @@ class Store {
         'category_name': categoryName,
         'category_slug': categorySlug,
         'website_url': websiteUrl,
+        'cover_image_url': coverUrl,
       };
 }
 
 class StoreCategory {
-  StoreCategory({required this.slug, required this.name, this.storeCount = 0});
+  StoreCategory({required this.slug, required this.name, this.storeCount = 0, this.imageUrl});
 
   final String slug;
   final String name;
   final int storeCount;
 
-  factory StoreCategory.fromJson(Map<String, dynamic> j) => StoreCategory(
+  /// Category photo (image pack: /media/deals/categories/<key>.webp).
+  final String? imageUrl;
+
+  factory StoreCategory.fromJson(Map<String, dynamic> j, {String assetBase = ''}) => StoreCategory(
         slug: _pick<String>(j, ['slug']) ?? '',
         name: _pick<String>(j, ['name', 'title']) ?? '',
         storeCount: _pick<int>(j, ['store_count', 'stores_count', 'storeCount', 'count']) ?? 0,
+        imageUrl: absoluteUrl(_pick<String>(j, ['image_url', 'image', 'photo_url']), assetBase),
       );
 }
 

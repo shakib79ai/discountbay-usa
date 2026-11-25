@@ -47,6 +47,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
               child: FadedCover(
                 gradient: LinearGradient(colors: [shade(site.color, 0.45), site.color]),
                 photo: site.photo,
+                url: c.imageUrl,
                 widthFactor: 0.8,
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(14, top + 8, 14, 18),

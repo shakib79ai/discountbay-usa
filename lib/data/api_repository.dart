@@ -107,7 +107,7 @@ class ApiRepository implements Repository {
   // ---------------------------------------------------------------- categories
 
   @override
-  Future<List<StoreCategory>> categories() async => _list(await _get(Endpoints.categories)).map(StoreCategory.fromJson).toList();
+  Future<List<StoreCategory>> categories() async => _list(await _get(Endpoints.categories)).map((j) => StoreCategory.fromJson(j, assetBase: _base)).toList();
 
   @override
   Future<List<Store>> categoryStores(String slug) async =>

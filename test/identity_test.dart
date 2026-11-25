@@ -38,4 +38,14 @@ void main() {
     expect(a.thumbs.length, 3);
     expect(StoreLook.forName("Macy's", slug: 'macy-s').brand.toARGB32(), 0xFFC8102E);
   });
+
+  test('image pack URLs: API fields are read and cards use the small version', () {
+    final s = Store.fromJson({'id': '1', 'slug': 'macy-s', 'name': "Macy's", 'cover_image_url': '/media/deals/stores/macy-s.webp'},
+        assetBase: 'https://discountbay.com');
+    expect(s.coverUrl, 'https://discountbay.com/media/deals/stores/macy-s.webp');
+    expect(cardUrl(s.coverUrl), 'https://discountbay.com/media/deals/stores/macy-s-card.webp');
+    expect(cardUrl('https://cdn.example.com/p.jpg'), 'https://cdn.example.com/p.jpg');
+    expect(StoreCategory.fromJson({'slug': 'pets', 'name': 'Pets', 'image_url': 'https://x.com/media/deals/categories/pets.webp'}).imageUrl,
+        'https://x.com/media/deals/categories/pets.webp');
+  });
 }

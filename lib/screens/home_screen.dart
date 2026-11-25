@@ -98,6 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (_, i) => CategoryCircle(
                       label: cats[i].name,
                       photo: SiteCategory.guess([cats[i].name]).photo,
+                      url: cats[i].imageUrl,
                       onTap: () => Navigator.of(context).push(CategoryScreen.route(cats[i])),
                     ),
                   ),

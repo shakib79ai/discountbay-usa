@@ -523,6 +523,7 @@ class StoreFeatureCard extends StatelessWidget {
                 child: FadedCover(
                   gradient: look.gradient,
                   photo: look.cover,
+                  url: cardUrl(store.coverUrl),
                   widthFactor: 0.8,
                   child: Padding(
                     padding: const EdgeInsets.all(10),
@@ -584,7 +585,7 @@ class StoreListCard extends StatelessWidget {
               width: 100,
               child: Stack(fit: StackFit.expand, children: [
                 DecoratedBox(decoration: BoxDecoration(gradient: look.gradient)),
-                Opacity(opacity: 0.85, child: Image.asset(look.cover, fit: BoxFit.cover)),
+                Opacity(opacity: 0.85, child: Photo(url: cardUrl(store.coverUrl), fallback: look.cover)),
                 Positioned(left: 10, bottom: 10, child: StoreBadge(look: look, logoUrl: store.logoUrl, size: 42, ring: 2)),
               ]),
             ),
@@ -623,9 +624,10 @@ class StoreListCard extends StatelessWidget {
 
 /// Round category photo with a label underneath (home row, category chips).
 class CategoryCircle extends StatelessWidget {
-  const CategoryCircle({super.key, required this.label, required this.photo, required this.onTap, this.selected = false});
+  const CategoryCircle({super.key, required this.label, required this.photo, required this.onTap, this.url, this.selected = false});
   final String label;
   final String photo;
+  final String? url;
   final VoidCallback onTap;
   final bool selected;
 
@@ -644,8 +646,8 @@ class CategoryCircle extends StatelessWidget {
               shape: BoxShape.circle,
               border: Border.all(color: selected ? DB.orange : Colors.white, width: 2.5),
               boxShadow: const [BoxShadow(color: Color(0x2412203A), blurRadius: 10, offset: Offset(0, 3))],
-              image: DecorationImage(image: AssetImage(photo), fit: BoxFit.cover),
             ),
+            child: ClipOval(child: Photo(url: cardUrl(url), fallback: photo)),
           ),
           const SizedBox(height: 6),
           Text(label, maxLines: 2, textAlign: TextAlign.center, style: DB.body(11, weight: FontWeight.w700).copyWith(height: 1.2)),
@@ -657,10 +659,11 @@ class CategoryCircle extends StatelessWidget {
 
 /// Photo tile with the name over a dark fade (Categories tab grid).
 class CategoryPhotoTile extends StatelessWidget {
-  const CategoryPhotoTile({super.key, required this.label, required this.meta, required this.photo, required this.onTap, this.badge});
+  const CategoryPhotoTile({super.key, required this.label, required this.meta, required this.photo, required this.onTap, this.url, this.badge});
   final String label;
   final String meta;
   final String photo;
+  final String? url;
   final String? badge;
   final VoidCallback onTap;
 
@@ -672,7 +675,7 @@ class CategoryPhotoTile extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Stack(fit: StackFit.expand, children: [
-          Image.asset(photo, fit: BoxFit.cover),
+          Photo(url: cardUrl(url), fallback: photo),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
