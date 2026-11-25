@@ -3,108 +3,129 @@ import 'package:provider/provider.dart';
 
 import '../state/saved.dart';
 import '../theme/tokens.dart';
-import '../widgets/components.dart';
-import '../widgets/decor.dart';
+import '../widgets/components.dart' show expiryText;
 import '../widgets/offer_sheet.dart';
+import '../widgets/shop.dart';
 import 'shell.dart';
 import 'store_screen.dart';
 
-/// Saved offers and followed stores (kept on the device).
-class SavedScreen extends StatelessWidget {
+/// Saved tab: saved deals (photo cards) and followed stores (store cards), kept on the phone.
+class SavedScreen extends StatefulWidget {
   const SavedScreen({super.key});
+
+  @override
+  State<SavedScreen> createState() => _SavedScreenState();
+}
+
+class _SavedScreenState extends State<SavedScreen> {
+  bool _stores = false;
 
   @override
   Widget build(BuildContext context) {
     final saved = context.watch<SavedState>();
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('SAVED', style: DB.display(24)),
-          bottom: TabBar(
-            indicatorColor: DB.mustard,
-            indicatorWeight: 3,
-            labelColor: DB.paper,
-            unselectedLabelColor: DB.paper.withValues(alpha: 0.55),
-            labelStyle: DB.body(14, color: DB.paper, weight: FontWeight.w700),
-            dividerColor: DB.lineOnInk,
-            tabs: [
-              Tab(text: 'Offers (${saved.offers.length})'),
-              Tab(text: 'Stores (${saved.stores.length})'),
-            ],
+    final offers = saved.offers;
+    final stores = saved.stores;
+    final endingToday = offers.where((o) => expiryText(o) == 'Ends today').length;
+
+    return CustomScrollView(slivers: [
+      SliverToBoxAdapter(
+        child: DarkHeader(
+          title: 'Saved',
+          trailing: 'Kept on this phone',
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              for (final (isStores, label) in [(false, 'Deals · ${offers.length}'), (true, 'Stores · ${stores.length}')])
+                Expanded(
+                  child: Material(
+                    color: _stores == isStores ? Colors.white : Colors.transparent,
+                    borderRadius: BorderRadius.circular(9),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(9),
+                      onTap: () => setState(() => _stores = isStores),
+                      child: SizedBox(
+                        height: 40,
+                        child: Center(
+                          child: Text(label,
+                              style: DB.body(13, color: _stores == isStores ? DB.ink : Colors.white, weight: FontWeight.w700)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ]),
           ),
         ),
-        body: TabBarView(
-          children: [
-            saved.offers.isEmpty
-                ? _Empty(
-                    icon: Icons.bookmark_border,
-                    text: 'Tap the bookmark on any code or deal to keep it here.',
-                    cta: 'Browse top deals',
-                    onTap: () => Shell.switchTab(context, 0),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(DB.gutter),
-                    itemCount: saved.offers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) {
-                      final o = saved.offers[i];
-                      return Dismissible(
-                        key: ValueKey('offer-${o.id}-${o.title}'),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 24),
-                          child: const Icon(Icons.delete_outline, color: DB.coral),
-                        ),
-                        onDismissed: (_) => saved.toggleOffer(o),
-                        child: OfferTicket(offer: o, onOpen: () => showOfferSheet(context, o)),
-                      );
-                    },
-                  ),
-            saved.stores.isEmpty
-                ? _Empty(
-                    icon: Icons.storefront_outlined,
-                    text: 'Follow stores to find their latest codes fast.',
-                    cta: 'Browse stores',
-                    onTap: () => Shell.switchTab(context, 1),
-                  )
-                : ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: saved.stores.length,
-                    separatorBuilder: (_, __) => const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: DB.gutter),
-                      child: DashedLine(color: DB.lineOnInk),
-                    ),
-                    itemBuilder: (context, i) {
-                      final s = saved.stores[i];
-                      return StoreRow(
-                        store: s,
-                        onTap: () => Navigator.of(context).push(StoreScreen.route(s.slug)),
-                        trailing: IconButton(
-                          tooltip: 'Unfollow',
-                          icon: const Icon(Icons.close, color: DB.paper),
-                          onPressed: () => saved.toggleStore(s),
-                        ),
-                      );
-                    },
-                  ),
-          ],
-        ),
       ),
-    );
-  }
-}
-
-class _Empty extends StatelessWidget {
-  const _Empty({required this.icon, required this.text, required this.cta, required this.onTap});
-  final IconData icon;
-  final String text;
-  final String cta;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(child: MessageState(icon: icon, text: text, actionLabel: cta, onAction: onTap));
+      if (!_stores) ...[
+        if (endingToday > 0)
+          SliverToBoxAdapter(
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(DB.gutter, 12, DB.gutter, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: DB.orangeSoft,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFFB98A)),
+              ),
+              child: Row(children: [
+                const Text('⏱', style: TextStyle(fontSize: 18)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text.rich(TextSpan(children: [
+                    TextSpan(
+                        text: '$endingToday saved ${endingToday == 1 ? 'deal ends' : 'deals end'} today. ',
+                        style: DB.body(13, weight: FontWeight.w800)),
+                    TextSpan(text: 'Use them before they’re gone.', style: DB.body(13)),
+                  ])),
+                ),
+              ]),
+            ),
+          ),
+        if (offers.isEmpty)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: EmptyNote('No saved deals yet. Tap ♡ on any deal to keep it here.',
+                  action: 'Browse top deals', onAction: () => Shell.switchTab(context, 0)),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(DB.gutter, 12, DB.gutter, 24),
+            sliver: SliverList.separated(
+              itemCount: offers.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => DealRow(offer: offers[i], onOpen: () => showOfferSheet(context, offers[i])),
+            ),
+          ),
+      ] else ...[
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(DB.gutter, 12, DB.gutter, 0),
+            child: Text('You’ll see these stores’ newest deals first.', style: DB.body(12, color: DB.muted)),
+          ),
+        ),
+        if (stores.isEmpty)
+          SliverToBoxAdapter(
+            child: EmptyNote('You’re not following any stores yet. Open a store and tap “Follow store”.',
+                action: 'Find stores', onAction: () => Shell.switchTab(context, 1)),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(DB.gutter, 10, DB.gutter, 24),
+            sliver: SliverList.separated(
+              itemCount: stores.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, i) => StoreListCard(
+                store: stores[i],
+                trailing: 'Following',
+                onTap: () => Navigator.of(context).push(StoreScreen.route(stores[i].slug)),
+              ),
+            ),
+          ),
+      ],
+    ]);
   }
 }

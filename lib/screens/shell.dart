@@ -27,7 +27,7 @@ class _ShellState extends State<Shell> {
     (Icons.home_outlined, Icons.home_rounded, 'Home'),
     (Icons.storefront_outlined, Icons.storefront_rounded, 'Stores'),
     (Icons.grid_view_outlined, Icons.grid_view_rounded, 'Categories'),
-    (Icons.bookmark_border_rounded, Icons.bookmark_rounded, 'Saved'),
+    (Icons.favorite_border_rounded, Icons.favorite_rounded, 'Saved'),
   ];
 
   @override
@@ -44,38 +44,36 @@ class _ShellState extends State<Shell> {
         ),
         bottomNavigationBar: Container(
           decoration: const BoxDecoration(
-            color: DB.ink,
-            border: Border(top: BorderSide(color: DB.lineOnInk)),
+            color: Colors.white,
+            border: Border(top: BorderSide(color: DB.border)),
+            boxShadow: [BoxShadow(color: Color(0x0F12203A), blurRadius: 18, offset: Offset(0, -6))],
           ),
           child: SafeArea(
             top: false,
             child: SizedBox(
-              height: 62,
+              height: 64,
               child: Row(
                 children: [
                   for (var i = 0; i < _tabs.length; i++)
                     Expanded(
-                      child: InkWell(
-                        onTap: () => goTo(i),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: i == _index ? DB.mustard : Colors.transparent,
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Icon(i == _index ? _tabs[i].$2 : _tabs[i].$1,
-                                  size: 22, color: i == _index ? DB.ink : DB.paper.withValues(alpha: 0.7)),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(_tabs[i].$3,
-                                style: DB.body(11,
-                                    color: i == _index ? DB.paper : DB.paper.withValues(alpha: 0.6),
-                                    weight: i == _index ? FontWeight.w700 : FontWeight.w500)),
-                          ],
+                      child: Semantics(
+                        selected: i == _index,
+                        button: true,
+                        label: _tabs[i].$3,
+                        child: InkWell(
+                          onTap: () => goTo(i),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(i == _index ? _tabs[i].$2 : _tabs[i].$1,
+                                  size: 25, color: i == _index ? DB.ink : const Color(0xFF6B7486)),
+                              const SizedBox(height: 3),
+                              Text(_tabs[i].$3,
+                                  style: DB.body(11.5,
+                                      color: i == _index ? DB.ink : const Color(0xFF6B7486),
+                                      weight: i == _index ? FontWeight.w700 : FontWeight.w500)),
+                            ],
+                          ),
                         ),
                       ),
                     ),

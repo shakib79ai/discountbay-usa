@@ -3,11 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../data/models.dart';
 import '../data/repository.dart';
+import '../theme/identity.dart';
 import '../theme/tokens.dart';
-import '../widgets/components.dart';
-import '../widgets/decor.dart';
+import '../widgets/components.dart' show MessageState;
+import '../widgets/shop.dart';
 import 'category_screen.dart';
 
+/// Categories tab: a photo tile per category, with search.
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
 
@@ -18,93 +20,73 @@ class CategoriesScreen extends StatefulWidget {
 class _CategoriesScreenState extends State<CategoriesScreen> {
   late final Repository _repo;
   late Future<List<StoreCategory>> _future;
+  String _q = '';
 
   @override
   void initState() {
     super.initState();
-    _repo = context.read<Repository>();
+    _repo = context.read<Repository>(); // read in initState, never during build
     _future = _repo.categories();
   }
 
-  // Rotating accent colours for the tiles, like the website's category tiles.
-  static const _accents = [DB.coral, DB.mustard, DB.mint, DB.paper];
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('CATEGORIES', style: DB.display(24)),
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: DashedLine(color: DB.lineOnInk)),
-      ),
-      body: RefreshIndicator(
-        color: DB.ink,
-        backgroundColor: DB.mustard,
-        onRefresh: () async {
-          setState(() => _future = _repo.categories());
-          await _future.catchError((_) => <StoreCategory>[]);
-        },
-        child: AsyncView<List<StoreCategory>>(
-          future: _future,
-          onRetry: () => setState(() => _future = _repo.categories()),
-          isEmpty: (l) => l.isEmpty,
-          builder: (context, cats) => GridView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(DB.gutter),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.35,
-            ),
-            itemCount: cats.length,
-            itemBuilder: (context, i) => _CategoryTile(
-              category: cats[i],
-              accent: _accents[i % _accents.length],
-              index: i,
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(() => _future = _repo.categories());
+        await _future.catchError((_) => <StoreCategory>[]);
+      },
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: FutureBuilder<List<StoreCategory>>(
+              future: _future,
+              builder: (_, s) => DarkHeader(
+                title: 'Categories',
+                trailing: s.hasData ? '${s.data!.length} categories' : null,
+                child: SearchBox(hint: 'Search categories', onChanged: (v) => setState(() => _q = v.trim().toLowerCase())),
+              ),
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CategoryTile extends StatelessWidget {
-  const _CategoryTile({required this.category, required this.accent, required this.index});
-  final StoreCategory category;
-  final Color accent;
-  final int index;
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipPath(
-      clipper: TicketClipper(notchRadius: 8),
-      child: Material(
-        color: accent,
-        child: InkWell(
-          onTap: () => Navigator.of(context).push(CategoryScreen.route(category)),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 14, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text((index + 1).toString().padLeft(2, '0'), style: DB.mono(11, color: DB.ink.withValues(alpha: 0.6))),
-                const Spacer(),
-                Text(category.name,
-                    maxLines: 2, overflow: TextOverflow.ellipsis, style: DB.heading(16, color: DB.ink)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    if (category.storeCount > 0)
-                      Text('${category.storeCount} stores', style: DB.body(12, color: DB.ink.withValues(alpha: 0.7))),
-                    const Spacer(),
-                    const Icon(Icons.arrow_forward, size: 18, color: DB.ink),
-                  ],
+          FutureBuilder<List<StoreCategory>>(
+            future: _future,
+            builder: (context, s) {
+              if (s.connectionState != ConnectionState.done) return const SliverToBoxAdapter(child: Loading());
+              if (s.hasError) {
+                return SliverToBoxAdapter(
+                  child: MessageState(
+                    icon: Icons.wifi_off_rounded,
+                    text: "Couldn't load categories.",
+                    actionLabel: 'Try again',
+                    onAction: () => setState(() => _future = _repo.categories()),
+                  ),
+                );
+              }
+              final cats = (s.data ?? const <StoreCategory>[]).where((c) => _q.isEmpty || c.name.toLowerCase().contains(_q)).toList();
+              if (cats.isEmpty) return const SliverToBoxAdapter(child: EmptyNote('No category matches — try another word.'));
+              return SliverPadding(
+                padding: EdgeInsets.fromLTRB(DB.gutter, 14, DB.gutter, MediaQuery.paddingOf(context).bottom + 24),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: 150),
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) {
+                      final c = cats[i];
+                      return CategoryPhotoTile(
+                        label: c.name,
+                        meta: c.storeCount > 0 ? '${c.storeCount} stores' : 'Explore stores',
+                        photo: SiteCategory.guess([c.name]).photo,
+                        onTap: () => Navigator.of(context).push(CategoryScreen.route(c)),
+                      );
+                    },
+                    childCount: cats.length,
+                  ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
-        ),
+        ],
       ),
     );
   }

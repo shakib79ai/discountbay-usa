@@ -3,12 +3,13 @@ import 'package:provider/provider.dart';
 
 import '../data/models.dart';
 import '../data/repository.dart';
+import '../theme/identity.dart';
 import '../theme/tokens.dart';
-import '../widgets/components.dart';
-import '../widgets/decor.dart';
 import '../widgets/offer_sheet.dart';
+import '../widgets/shop.dart';
 import 'store_screen.dart';
 
+/// Category page: photo hero in the category's colour, top deals, then every store in it.
 class CategoryScreen extends StatefulWidget {
   const CategoryScreen({super.key, required this.category});
   final StoreCategory category;
@@ -20,87 +21,113 @@ class CategoryScreen extends StatefulWidget {
 }
 
 class _CategoryScreenState extends State<CategoryScreen> {
-  late final Repository _repo;
-  late Future<List<Store>> _stores;
-  late Future<List<Offer>> _offers;
+  late final Future<List<Store>> _stores;
+  late final Future<List<Offer>> _offers;
+  String _q = '';
 
   @override
   void initState() {
     super.initState();
-    _repo = context.read<Repository>();
-    _stores = _repo.categoryStores(widget.category.slug);
-    _offers = _repo.categoryOffers(widget.category.slug);
+    final repo = context.read<Repository>(); // read in initState, never during build
+    _stores = repo.categoryStores(widget.category.slug);
+    _offers = repo.categoryOffers(widget.category.slug);
   }
 
   @override
   Widget build(BuildContext context) {
     final c = widget.category;
+    final site = SiteCategory.guess([c.name]);
+    final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(c.name),
-        bottom: const PreferredSize(preferredSize: Size.fromHeight(1), child: DashedLine(color: DB.lineOnInk)),
-      ),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(DB.gutter, 22, DB.gutter, 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Eyebrow('StoreCategory'),
-                  const SizedBox(height: 6),
-                  Text('${c.name} coupons'.toUpperCase(), style: DB.display(32)),
-                  const SizedBox(height: 8),
-                  Text('Verified codes and deals from top ${c.name.toLowerCase()} stores, checked daily.',
-                      style: DB.body(14, color: DB.paper.withValues(alpha: 0.7))),
-                ],
-              ),
-            ),
-          ),
-          const SliverToBoxAdapter(child: SectionHeader(title: 'Stores', onInk: true)),
-          SliverToBoxAdapter(
-            child: AsyncView<List<Store>>(
-              future: _stores,
-              onRetry: () => setState(() => _stores = _repo.categoryStores(c.slug)),
-              isEmpty: (l) => l.isEmpty,
-              emptyText: 'No stores in this category yet.',
-              builder: (context, stores) => GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: DB.gutter),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.82,
-                ),
-                itemCount: stores.length,
-                itemBuilder: (context, i) => StoreTile(
-                  store: stores[i],
-                  onTap: () => Navigator.of(context).push(StoreScreen.route(stores[i].slug)),
+            child: SizedBox(
+              height: 200 + top,
+              child: FadedCover(
+                gradient: LinearGradient(colors: [shade(site.color, 0.45), site.color]),
+                photo: site.photo,
+                widthFactor: 0.8,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(14, top + 8, 14, 18),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const BackSquare(onDark: false),
+                    const Spacer(),
+                    Text('CATEGORY', style: DB.label(9.5, color: Colors.white.withValues(alpha: 0.85))),
+                    const SizedBox(height: 4),
+                    FractionallySizedBox(
+                      widthFactor: 0.65,
+                      child: Text(c.name, maxLines: 2, style: DB.headline(24, color: Colors.white)),
+                    ),
+                    FutureBuilder<List<Store>>(
+                      future: _stores,
+                      builder: (_, s) => Text(
+                        s.hasData ? '${s.data!.length} stores · ${s.data!.fold<int>(0, (a, x) => a + x.offerCount)} offers' : ' ',
+                        style: DB.body(12, color: Colors.white.withValues(alpha: 0.9), weight: FontWeight.w600),
+                      ),
+                    ),
+                  ]),
                 ),
               ),
             ),
           ),
-          const SliverToBoxAdapter(child: SectionHeader(title: 'Top offers', onInk: true)),
-          AsyncView<List<Offer>>(
+          FutureBuilder<List<Offer>>(
             future: _offers,
-            sliver: true,
-            onRetry: () => setState(() => _offers = _repo.categoryOffers(c.slug)),
-            isEmpty: (l) => l.isEmpty,
-            emptyText: 'Open a store above to see its offers.',
-            builder: (context, offers) => SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: DB.gutter),
-              sliver: SliverList.separated(
-                itemCount: offers.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) =>
-                    OfferTicket(offer: offers[i], onOpen: () => showOfferSheet(context, offers[i])),
-              ),
+            builder: (context, s) {
+              final offers = (s.data ?? const <Offer>[]).where((o) => !o.expired).take(4).toList();
+              if (offers.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
+              return SliverMainAxisGroup(slivers: [
+                SliverToBoxAdapter(child: SectionTitle('Top ${c.name} deals', top: 16)),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: DB.gutter),
+                  sliver: SliverGrid(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: 268),
+                    delegate: SliverChildBuilderDelegate(
+                      (_, i) => DealCard(
+                        offer: offers[i],
+                        onOpen: () => showOfferSheet(context, offers[i]),
+                        onStore: () => Navigator.of(context).push(StoreScreen.route(offers[i].storeSlug)),
+                      ),
+                      childCount: offers.length,
+                    ),
+                  ),
+                ),
+              ]);
+            },
+          ),
+          SliverToBoxAdapter(
+            child: FutureBuilder<List<Store>>(
+              future: _stores,
+              builder: (_, s) => SectionTitle('Stores', subtitle: s.hasData ? '${s.data!.length} stores' : null),
             ),
           ),
-          SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 28)),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(DB.gutter, 0, DB.gutter, 10),
+              child: SearchBox(hint: 'Search ${c.name} stores', onChanged: (v) => setState(() => _q = v.trim().toLowerCase())),
+            ),
+          ),
+          FutureBuilder<List<Store>>(
+            future: _stores,
+            builder: (context, s) {
+              if (s.connectionState != ConnectionState.done) return const SliverToBoxAdapter(child: Loading());
+              final stores = [...(s.data ?? const <Store>[])]
+                ..sort((a, b) => b.offerCount.compareTo(a.offerCount))
+                ..retainWhere((x) => _q.isEmpty || x.name.toLowerCase().contains(_q));
+              if (stores.isEmpty) return const SliverToBoxAdapter(child: EmptyNote('No stores here yet.'));
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: DB.gutter),
+                sliver: SliverList.separated(
+                  itemCount: stores.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (_, i) =>
+                      StoreListCard(store: stores[i], onTap: () => Navigator.of(context).push(StoreScreen.route(stores[i].slug))),
+                ),
+              );
+            },
+          ),
+          SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom + 24)),
         ],
       ),
     );

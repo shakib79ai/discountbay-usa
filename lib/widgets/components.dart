@@ -499,7 +499,7 @@ class AsyncView<T> extends StatelessWidget {
     required this.future,
     required this.builder,
     this.onRetry,
-    this.onInk = true,
+    this.onInk = false,
     this.isEmpty,
     this.emptyText = 'Nothing here yet.',
     this.sliver = false,
@@ -522,7 +522,7 @@ class AsyncView<T> extends StatelessWidget {
         if (snap.connectionState != ConnectionState.done) {
           return wrap(Padding(
             padding: const EdgeInsets.all(32),
-            child: Center(child: CircularProgressIndicator(color: onInk ? DB.mustard : DB.coral, strokeWidth: 2.5)),
+            child: Center(child: CircularProgressIndicator(color: onInk ? DB.mustard : DB.orange, strokeWidth: 2.5)),
           ));
         }
         if (snap.hasError) {
@@ -545,7 +545,7 @@ class AsyncView<T> extends StatelessWidget {
 }
 
 class MessageState extends StatelessWidget {
-  const MessageState({super.key, required this.icon, required this.text, this.actionLabel, this.onAction, this.onInk = true});
+  const MessageState({super.key, required this.icon, required this.text, this.actionLabel, this.onAction, this.onInk = false});
   final IconData icon;
   final String text;
   final String? actionLabel;
@@ -565,7 +565,7 @@ class MessageState extends StatelessWidget {
           Text(text, textAlign: TextAlign.center, style: DB.body(14, color: fg.withValues(alpha: 0.75))),
           if (actionLabel != null) ...[
             const SizedBox(height: 16),
-            PillButton(actionLabel!, onPressed: onAction, dense: true),
+            PillButton(actionLabel!, onPressed: onAction, dense: true, style: onInk ? PillStyle.mustard : PillStyle.ink),
           ],
         ],
       ),

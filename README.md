@@ -4,32 +4,39 @@ Native mobile app for [discountbay.com](https://discountbay.com), built in Flutt
 
 **Publishing to Google Play and the App Store:** follow [`docs/RELEASE.md`](docs/RELEASE.md). Store texts, data-safety answers and store images are in [`store/`](store/LISTING.md).
 
-## Design system (same as the website)
+## Design (2026 store-front redesign — same as the website)
+
+Light pages, photo cards, and every store in its own brand colour, so each store page feels like the store's own little shop.
 
 | Token | Value | Used for |
 | --- | --- | --- |
-| ink | `#12203A` | App background, text on paper |
-| paper / paper-dim | `#FBF7EE` / `#F1EBDC` | Ticket cards, light bands |
-| coral | `#FF5A47` | Logo mark, codes, stamps, accents |
-| mustard | `#FFC145` | Primary CTAs, active tab, newsletter band |
-| mint | `#3FB88C` | Verified badges, deals |
-| Fonts | Anton · Archivo · Inter · IBM Plex Mono | Display · headings · body · codes |
+| ink | `#12203A` | Text, navy headers, default buttons |
+| bg | `#F4F6F9` | Page background |
+| border | `#E1E7EF` | Cards, inputs |
+| orange | `#E25F12` | DiscountBay accent, links |
+| sale | `#E2453C` | "UP TO 70% OFF" badges |
+| price | `#B42318` | Discount / price text |
+| verified | `#1F7A57` | "✓ Verified" |
+| Fonts | Archivo Black · Archivo · Inter | Headlines · headings · body |
 
-Logo: the official DiscountBay artwork from the brand kit, in `assets/brand/` (1×, 2×, 3×) and shown with `lib/widgets/brand_logo.dart`. The app icon, Android adaptive icon and splash screen are generated from `assets/icon/`.
+- **Tokens:** `lib/theme/tokens.dart`.
+- **Store identity:** `lib/theme/identity.dart` gives every store a brand colour (real colours for Amazon, Macy's, eBay; a 24-colour palette for the rest), two-letter initials, a tile style, a cover photo and one of 10 site categories. When the API adds `brand_color`, `tagline` and `cover_url`, read them in `StoreLook.of` first.
+- **Building blocks:** `lib/widgets/shop.dart` — deal card, deal row, store cards, category tiles, navy header, search box, pills, buttons.
+- **Photos:** offers use `image_url` from the API; when it is empty, a category photo from `assets/photos/` is shown. These bundled photos are small previews — replace them with full-size images (same file names) before release.
 
-Motifs carried over: **perforated dividers** between bands, **scalloped ticket cards** with side notches and a dashed tear line, **tilted dashed stamps** ("20% OFF", "DEAL"), and **barcode accents** on the coupon sheet. All live in `lib/theme/tokens.dart` and `lib/widgets/decor.dart`.
+Logo: the official DiscountBay artwork in `assets/brand/`, shown with `lib/widgets/brand_logo.dart`. App icon and splash are generated from `assets/icon/`.
 
 ## Screens
 
-- **Home** — hero ("Stop paying full price!"), store search, trending stores, stat tape, Popular Stores, Today's Top Verified Deals (All / Codes / Deals / Ending soon), Trending Categories, Hot Product Deals, How it works, FAQ, newsletter.
-- **Stores** — search + A–Z rail + infinite list.
-- **Store page** — ticket header with logo, active offers / best deal / verified stats, Visit + Follow, tabs with counts, sort, "Show more", "Missed these?" expired offers, how-to-redeem, about, similar stores, store alerts signup.
-- **Categories** — tile grid → category page (stores + offers).
-- **Top offers** — full list with filters and infinite scroll.
-- **Search** — stores and offers as you type.
-- **Saved** — saved offers and followed stores, stored on the device (no account needed).
-- **Account** — sign up / log in (opens the website for now), help, legal, contact, socials, FAQ.
-- **Coupon sheet** — tapping any offer opens a ticket: codes are copied with one tap and the store opens; deals open the store directly.
+- **Home** — navy header with logo and search, hero slider of the biggest current offers (each in its store's colours), category photos, featured stores, Today's top deals (All / Codes / Deals / Ending soon) as photo cards, hot product deals, FAQ, deal alerts.
+- **Stores** — search, A–Z letters, featured stores, then every store as a store card (cover, tile, offer count), infinite list.
+- **Store page** — brand-colour cover with photo, logo tile, offer count, Follow + Visit store, search inside the store, **filter sheet** (offer type, discount, ends within 7 days, sort), offers as product cards with Load more, recently expired, how it works, about, similar stores.
+- **Categories** — photo tile per category with search → **category page** (photo hero in the category colour, top deals, every store in it with search).
+- **Top deals** — search, type pills, sort toggle, photo cards, infinite scroll.
+- **Search** — stores and deals as you type.
+- **Saved** — Deals and Stores tabs; saved deals as photo cards with an "ends today" banner, followed stores as store cards. Kept on the phone.
+- **Account** — sign up / log in (website for now), counts, stores you follow, links, contact, socials, FAQ.
+- **Deal sheet** — photo, store, title, value, facts (verified · code/deal · end date); codes are copied with one tap and the store opens, deals open the store directly, in the store's own button colour.
 
 ## Getting started
 

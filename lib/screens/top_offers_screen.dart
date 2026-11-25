@@ -3,13 +3,21 @@ import 'package:provider/provider.dart';
 
 import '../data/models.dart';
 import '../data/repository.dart';
+import '../theme/identity.dart';
 import '../theme/tokens.dart';
-import '../widgets/components.dart';
-import '../widgets/decor.dart';
+import '../widgets/components.dart' show MessageState;
 import '../widgets/offer_sheet.dart';
-import 'home_screen.dart' show filterLabel;
+import '../widgets/shop.dart';
+import 'store_screen.dart';
 
-/// "Top offers" — every verified offer with All / Codes / Deals / Ending soon and infinite scroll.
+String filterLabel(OfferFilter f) => switch (f) {
+      OfferFilter.all => 'All',
+      OfferFilter.codes => 'Codes',
+      OfferFilter.deals => 'Deals',
+      OfferFilter.endingSoon => 'Ending soon',
+    };
+
+/// Top deals: search, type chips, a sort toggle and product cards in two columns (infinite scroll).
 class TopOffersScreen extends StatefulWidget {
   const TopOffersScreen({super.key, this.initialFilter = OfferFilter.all});
   final OfferFilter initialFilter;
@@ -21,10 +29,14 @@ class TopOffersScreen extends StatefulWidget {
   State<TopOffersScreen> createState() => _TopOffersScreenState();
 }
 
+enum _Sort { top, savings }
+
 class _TopOffersScreenState extends State<TopOffersScreen> {
   late final Repository _repo;
   final _scroll = ScrollController();
-  late OfferFilter _filter;
+  late OfferFilter _filter = widget.initialFilter;
+  _Sort _sort = _Sort.top;
+  String _q = '';
   final List<Offer> _items = [];
   int _page = 1;
   bool _loading = false;
@@ -35,8 +47,7 @@ class _TopOffersScreenState extends State<TopOffersScreen> {
   @override
   void initState() {
     super.initState();
-    _repo = context.read<Repository>();
-    _filter = widget.initialFilter;
+    _repo = context.read<Repository>(); // read in initState, never during build
     _scroll.addListener(() {
       if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 500) _load();
     });
@@ -81,64 +92,77 @@ class _TopOffersScreenState extends State<TopOffersScreen> {
     }
   }
 
+  List<Offer> get _visible {
+    final q = _q.toLowerCase();
+    final list = _items.where((o) => q.isEmpty || '${o.title} ${o.storeName}'.toLowerCase().contains(q)).toList();
+    if (_sort == _Sort.savings) list.sort((a, b) => savePercent(b).compareTo(savePercent(a)));
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final items = _visible;
     return Scaffold(
-      appBar: AppBar(
-        title: Text('TOP OFFERS', style: DB.display(24)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Column(
-            children: [
-              ChipBar<OfferFilter>(
-                values: OfferFilter.values,
-                selected: _filter,
-                onInk: true,
-                label: filterLabel,
-                onSelected: _setFilter,
-              ),
-              const SizedBox(height: 10),
-              const DashedLine(color: DB.lineOnInk),
-            ],
-          ),
-        ),
-      ),
       body: RefreshIndicator(
-        color: DB.ink,
-        backgroundColor: DB.mustard,
         onRefresh: () async => _setFilter(_filter),
-        child: _items.isEmpty && _error != null
-            ? ListView(children: [
-                MessageState(
-                  icon: Icons.wifi_off_rounded,
-                  text: "Couldn't load offers.",
-                  actionLabel: 'Try again',
-                  onAction: () => _setFilter(_filter),
-                ),
-              ])
-            : _items.isEmpty && !_loading && !_hasMore
-                ? ListView(children: const [
-                    MessageState(icon: Icons.local_offer_outlined, text: 'No offers in this filter right now.'),
-                  ])
-                : ListView.separated(
-                    controller: _scroll,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: EdgeInsets.fromLTRB(DB.gutter, 16, DB.gutter, MediaQuery.paddingOf(context).bottom + 24),
-                    itemCount: _items.length + 1,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) {
-                      if (i == _items.length) {
-                        return _loading
-                            ? const Padding(
-                                padding: EdgeInsets.all(24),
-                                child: Center(child: CircularProgressIndicator(color: DB.mustard, strokeWidth: 2.5)),
-                              )
-                            : const SizedBox.shrink();
-                      }
-                      final o = _items[i];
-                      return OfferTicket(offer: o, onOpen: () => showOfferSheet(context, o));
-                    },
+        child: CustomScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: DarkHeader(
+                title: 'Top deals',
+                leading: const BackSquare(),
+                child: SearchBox(hint: 'Search deals', onChanged: (v) => setState(() => _q = v.trim())),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: PillRow<OfferFilter>(values: OfferFilter.values, selected: _filter, label: filterLabel, onSelected: _setFilter),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(DB.gutter, 8, 6, 4),
+                child: Row(children: [
+                  Expanded(child: Text('${items.length} deals', style: DB.body(13, weight: FontWeight.w700))),
+                  TextButton(
+                    onPressed: () => setState(() => _sort = _sort == _Sort.top ? _Sort.savings : _Sort.top),
+                    child: Text('Sort: ${_sort == _Sort.top ? 'Top picks' : 'Biggest savings'}',
+                        style: DB.body(12.5, color: DB.orange, weight: FontWeight.w700)),
                   ),
+                ]),
+              ),
+            ),
+            if (_items.isEmpty && _error != null)
+              SliverToBoxAdapter(
+                child: MessageState(
+                    icon: Icons.wifi_off_rounded, text: "Couldn't load offers.", actionLabel: 'Try again', onAction: () => _setFilter(_filter)),
+              )
+            else if (items.isEmpty && !_loading)
+              const SliverToBoxAdapter(child: EmptyNote('No deals match right now.'))
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: DB.gutter),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2, mainAxisSpacing: 10, crossAxisSpacing: 10, mainAxisExtent: 268),
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) => DealCard(
+                      offer: items[i],
+                      onOpen: () => showOfferSheet(context, items[i]),
+                      onStore: () => Navigator.of(context).push(StoreScreen.route(items[i].storeSlug)),
+                    ),
+                    childCount: items.length,
+                  ),
+                ),
+              ),
+            SliverToBoxAdapter(
+              child: _loading ? const Loading() : SizedBox(height: MediaQuery.paddingOf(context).bottom + 24),
+            ),
+          ],
+        ),
       ),
     );
   }

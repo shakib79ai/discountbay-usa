@@ -1,7 +1,7 @@
 name: discountbay
 description: DiscountBay — verified coupon codes and deals. Native iOS & Android app.
 publish_to: "none"
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -48,6 +48,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/
+    - assets/photos/ # category fallback photos (replace with full-size images before release)
   # logo images: assets/brand/*.png with 2.0x/ and 3.0x/ variants (see lib/widgets/brand_logo.dart)
   fonts:
     - family: Archivo

@@ -6,11 +6,11 @@ import 'package:provider/provider.dart';
 import '../data/models.dart';
 import '../data/repository.dart';
 import '../theme/tokens.dart';
-import '../widgets/components.dart';
-import '../widgets/decor.dart';
+import '../widgets/components.dart' show MessageState;
+import '../widgets/shop.dart';
 import 'store_screen.dart';
 
-/// All stores: search box, A–Z letter rail and an infinite list.
+/// Stores tab: search, A–Z letters, featured stores, then every store as a store card (infinite list).
 class StoresScreen extends StatefulWidget {
   const StoresScreen({super.key});
 
@@ -21,7 +21,8 @@ class StoresScreen extends StatefulWidget {
 class _StoresScreenState extends State<StoresScreen> {
   static const _letters = ['All', '#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
 
-  late final Repository _repo = context.read<Repository>();
+  late final Repository _repo;
+  late final Future<List<Store>> _featured;
   final _search = TextEditingController();
   final _scroll = ScrollController();
   Timer? _debounce;
@@ -34,11 +35,15 @@ class _StoresScreenState extends State<StoresScreen> {
   Object? _error;
   int _generation = 0; // ignores stale responses after filters change
 
+  bool get _filtered => _letter != 'All' || _search.text.trim().isNotEmpty;
+
   @override
   void initState() {
     super.initState();
+    _repo = context.read<Repository>(); // read in initState, never during build
+    _featured = _repo.popularStores();
     _scroll.addListener(() {
-      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 400) _loadMore();
+      if (_scroll.position.pixels > _scroll.position.maxScrollExtent - 500) _loadMore();
     });
     Future.microtask(_loadMore); // after first build — no setState inside initState
   }
@@ -68,11 +73,7 @@ class _StoresScreenState extends State<StoresScreen> {
     final gen = _generation;
     setState(() => _loading = true);
     try {
-      final res = await _repo.stores(
-        query: _search.text.trim(),
-        letter: _letter == 'All' ? null : _letter,
-        page: _page,
-      );
+      final res = await _repo.stores(query: _search.text.trim(), letter: _letter == 'All' ? null : _letter, page: _page);
       if (!mounted || gen != _generation) return;
       setState(() {
         _items.addAll(res.items);
@@ -91,165 +92,82 @@ class _StoresScreenState extends State<StoresScreen> {
     _debounce = Timer(const Duration(milliseconds: 350), _reset);
   }
 
+  void _open(Store s) => Navigator.of(context).push(StoreScreen.route(s.slug));
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('ALL STORES', style: DB.display(24)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(112),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(DB.gutter, 4, DB.gutter, 10),
-                child: _SearchField(controller: _search, onChanged: _onSearchChanged, hint: 'Search 10,000+ stores'),
-              ),
-              SizedBox(
-                height: 40,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  itemCount: _letters.length,
-                  itemBuilder: (_, i) {
-                    final l = _letters[i];
-                    final on = l == _letter;
-                    return GestureDetector(
-                      onTap: () {
-                        if (on) return;
-                        _letter = l;
-                        _reset();
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 10),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: on ? DB.mustard : Colors.transparent,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(l, style: DB.mono(13, color: on ? DB.ink : DB.paper.withValues(alpha: 0.8))),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 6),
-              const DashedLine(color: DB.lineOnInk),
-            ],
+    return RefreshIndicator(
+      onRefresh: () async => _reset(),
+      child: CustomScrollView(
+        controller: _scroll,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: DarkHeader(
+              title: 'Stores',
+              trailing: '10,000+ stores',
+              child: SearchBox(controller: _search, onChanged: _onSearchChanged, hint: 'Search stores or brands'),
+            ),
           ),
-        ),
-      ),
-      body: RefreshIndicator(
-        color: DB.ink,
-        backgroundColor: DB.mustard,
-        onRefresh: () async => _reset(),
-        child: _body(),
-      ),
-    );
-  }
-
-  Widget _body() {
-    if (_items.isEmpty && _error != null) {
-      return ListView(children: [
-        MessageState(icon: Icons.wifi_off_rounded, text: "Couldn't load stores.", actionLabel: 'Try again', onAction: _reset),
-      ]);
-    }
-    if (_items.isEmpty && !_loading && !_hasMore) {
-      return ListView(children: const [
-        MessageState(icon: Icons.search_off, text: 'No stores match that search.'),
-      ]);
-    }
-    return ListView.separated(
-      controller: _scroll,
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(top: 6, bottom: 24),
-      itemCount: _items.length + 1,
-      separatorBuilder: (_, __) =>
-          const Padding(padding: EdgeInsets.symmetric(horizontal: DB.gutter), child: Divider(color: DB.lineOnInk, height: 1)),
-      itemBuilder: (context, i) {
-        if (i == _items.length) {
-          return _loading
-              ? const Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Center(child: CircularProgressIndicator(color: DB.mustard, strokeWidth: 2.5)),
-                )
-              : const SizedBox(height: 8);
-        }
-        final s = _items[i];
-        return StoreRow(store: s, onTap: () => Navigator.of(context).push(StoreScreen.route(s.slug)));
-      },
-    );
-  }
-}
-
-class _SearchField extends StatelessWidget {
-  const _SearchField({required this.controller, required this.onChanged, required this.hint});
-  final TextEditingController controller;
-  final ValueChanged<String> onChanged;
-  final String hint;
-
-  @override
-  Widget build(BuildContext context) {
-    return SearchInput(controller: controller, onChanged: onChanged, hint: hint);
-  }
-}
-
-/// Paper pill search input, shared with the Search screen.
-class SearchInput extends StatelessWidget {
-  const SearchInput({
-    super.key,
-    required this.controller,
-    this.onChanged,
-    this.onSubmitted,
-    this.hint = 'Search stores & deals',
-    this.autofocus = false,
-  });
-
-  final TextEditingController controller;
-  final ValueChanged<String>? onChanged;
-  final ValueChanged<String>? onSubmitted;
-  final String hint;
-  final bool autofocus;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 46,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(color: DB.paper, borderRadius: BorderRadius.circular(999)),
-      child: Row(
-        children: [
-          Icon(Icons.search, color: DB.ink.withValues(alpha: 0.5), size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              autofocus: autofocus,
-              onChanged: onChanged,
-              onSubmitted: onSubmitted,
-              textInputAction: TextInputAction.search,
-              style: DB.body(15),
-              cursorColor: DB.coral,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: DB.body(15, color: DB.ink.withValues(alpha: 0.45)),
-                border: InputBorder.none,
-                isDense: true,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: PillRow<String>(
+                values: _letters,
+                selected: _letter,
+                label: (l) => l,
+                onSelected: (l) {
+                  if (l == _letter) return;
+                  _letter = l;
+                  _reset();
+                },
               ),
             ),
           ),
-          ListenableBuilder(
-            listenable: controller,
-            builder: (_, __) => controller.text.isEmpty
-                ? const SizedBox.shrink()
-                : GestureDetector(
-                    onTap: () {
-                      controller.clear();
-                      onChanged?.call('');
-                    },
-                    child: Icon(Icons.close, size: 18, color: DB.ink.withValues(alpha: 0.6)),
-                  ),
+          if (!_filtered) ...[
+            const SliverToBoxAdapter(child: SectionTitle('Featured', top: 16)),
+            SliverToBoxAdapter(
+              child: FutureBuilder<List<Store>>(
+                future: _featured,
+                builder: (_, s) {
+                  final list = s.data ?? const <Store>[];
+                  if (list.isEmpty) return const SizedBox(height: 8);
+                  return SizedBox(
+                    height: 132,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: DB.gutter),
+                      itemCount: list.length > 8 ? 8 : list.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (_, i) => StoreFeatureCard(store: list[i], onTap: () => _open(list[i])),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+          SliverToBoxAdapter(
+            child: SectionTitle(
+              _letter != 'All' ? 'Stores starting with $_letter' : (_search.text.trim().isNotEmpty ? 'Matching stores' : 'All stores'),
+              top: _filtered ? 14 : 6,
+            ),
           ),
+          if (_items.isEmpty && _error != null)
+            SliverToBoxAdapter(
+              child: MessageState(icon: Icons.wifi_off_rounded, text: "Couldn't load stores.", actionLabel: 'Try again', onAction: _reset),
+            )
+          else if (_items.isEmpty && !_loading && !_hasMore)
+            const SliverToBoxAdapter(child: EmptyNote('No stores match that search.'))
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: DB.gutter),
+              sliver: SliverList.separated(
+                itemCount: _items.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (_, i) => StoreListCard(store: _items[i], onTap: () => _open(_items[i])),
+              ),
+            ),
+          SliverToBoxAdapter(child: _loading ? const Loading() : const SizedBox(height: 24)),
         ],
       ),
     );

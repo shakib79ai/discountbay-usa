@@ -6,11 +6,11 @@ import 'package:provider/provider.dart';
 import '../data/models.dart';
 import '../data/repository.dart';
 import '../theme/tokens.dart';
-import '../widgets/components.dart';
 import '../widgets/offer_sheet.dart';
+import '../widgets/shop.dart';
 import 'store_screen.dart';
-import 'stores_screen.dart' show SearchInput;
 
+/// Search stores and deals as you type.
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -52,74 +52,68 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 0,
-        title: Padding(
-          padding: const EdgeInsets.only(right: DB.gutter),
-          child: SearchInput(controller: _ctrl, onChanged: _run, onSubmitted: _run, autofocus: true),
+      body: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        DarkHeader(
+          title: 'Search',
+          leading: const BackSquare(),
+          child: SearchBox(controller: _ctrl, onChanged: _run, hint: 'Stores, brands or products', autofocus: true),
         ),
-      ),
-      body: _future == null ? _idle() : _results(),
+        Expanded(child: _future == null ? _idle() : _results()),
+      ]),
     );
   }
 
   Widget _idle() {
-    return ListView(
-      padding: const EdgeInsets.all(DB.gutter),
-      children: [
-        Text('POPULAR SEARCHES', style: DB.mono(11, color: DB.paper.withValues(alpha: 0.55))),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final s in _suggestions)
-              ActionChip(
-                label: Text(s),
-                labelStyle: DB.body(13, color: DB.paper, weight: FontWeight.w600),
-                backgroundColor: DB.inkSoft,
-                side: const BorderSide(color: DB.lineOnInk),
-                shape: const StadiumBorder(),
-                onPressed: () {
-                  _ctrl.text = s;
-                  _run(s);
-                },
-              ),
-          ],
-        ),
-      ],
-    );
+    return ListView(padding: const EdgeInsets.all(DB.gutter), children: [
+      Text('POPULAR SEARCHES', style: DB.label(10.5)),
+      const SizedBox(height: 10),
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final s in _suggestions)
+          ActionChip(
+            label: Text(s),
+            labelStyle: DB.body(13, weight: FontWeight.w700),
+            backgroundColor: Colors.white,
+            side: const BorderSide(color: DB.border, width: 1.4),
+            shape: const StadiumBorder(),
+            onPressed: () {
+              _ctrl.text = s;
+              _run(s);
+            },
+          ),
+      ]),
+    ]);
   }
 
   Widget _results() {
-    return AsyncView<({List<Store> stores, List<Offer> offers})>(
-      future: _future!,
-      onRetry: () => _run(_ctrl.text),
-      isEmpty: (r) => r.stores.isEmpty && r.offers.isEmpty,
-      emptyText: 'No stores or deals match “${_ctrl.text.trim()}”.',
-      builder: (context, r) => ListView(
-        padding: EdgeInsets.only(top: 8, bottom: MediaQuery.paddingOf(context).bottom + 24),
-        children: [
-          if (r.stores.isNotEmpty) ...[
-            _label('Stores'),
-            for (final s in r.stores)
-              StoreRow(store: s, onTap: () => Navigator.of(context).push(StoreScreen.route(s.slug))),
+    return FutureBuilder<({List<Store> stores, List<Offer> offers})>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) return const Loading();
+        if (snap.hasError) return EmptyNote("Couldn't search right now.", action: 'Try again', onAction: () => _run(_ctrl.text));
+        final r = snap.data!;
+        if (r.stores.isEmpty && r.offers.isEmpty) return EmptyNote('No stores or deals match “${_ctrl.text.trim()}”.');
+        return ListView(
+          padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 24),
+          children: [
+            if (r.stores.isNotEmpty) ...[
+              SectionTitle('Stores', subtitle: '${r.stores.length} found', top: 14),
+              for (final s in r.stores)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(DB.gutter, 0, DB.gutter, 10),
+                  child: StoreListCard(store: s, onTap: () => Navigator.of(context).push(StoreScreen.route(s.slug))),
+                ),
+            ],
+            if (r.offers.isNotEmpty) ...[
+              SectionTitle('Deals', subtitle: '${r.offers.length} found', top: 10),
+              for (final o in r.offers)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(DB.gutter, 0, DB.gutter, 10),
+                  child: DealRow(offer: o, onOpen: () => showOfferSheet(context, o)),
+                ),
+            ],
           ],
-          if (r.offers.isNotEmpty) ...[
-            _label('Offers'),
-            for (final o in r.offers)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(DB.gutter, 0, DB.gutter, 12),
-                child: OfferTicket(offer: o, onOpen: () => showOfferSheet(context, o)),
-              ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
-
-  Widget _label(String t) => Padding(
-        padding: const EdgeInsets.fromLTRB(DB.gutter, 16, DB.gutter, 8),
-        child: Text(t.toUpperCase(), style: DB.mono(11, color: DB.mustard)),
-      );
 }
